@@ -227,22 +227,22 @@ export function Home() {
       {/* Main Content */}
       <main className="flex-1 p-8 flex flex-col items-center relative z-10">
         {/* Navbar */}
-        <div className="fixed top-0 left-0 w-full h-16 p-2 flex justify-center items-center bg-black bg-opacity-35 backdrop-filter backdrop-blur-lg">
+        <div className="fixed top-0 left-0 w-full h-16 p-2 flex justify-center items-center bg-black bg-opacity-40 backdrop-filter backdrop-blur-lg">
           <div className="flex items-center">
-            <span className="text-4xl font-bold text-white italic" style={{ textShadow: '0 0 6px #8a2be2, 0 0 10px #8a2be2, 0 0 20px #8a2be2, 0 0 40px #8a2be2' }}>Zap</span>
+            <span className="text-4xl font-bold text-white italic" style={{ textShadow: '0 0 6px #8a2be2, 0 0 15px #8a2be2, 0 0 25px #8a2be2, 0 0 45px #8a2be2' }}>Z̶a̶p̶</span>
           </div>
         </div>
 
         {/* Logo and Header */}
-        <div className="w-full max-w-4xl text-center mb-6 mt-20">
-          <h1 className="text-3xl font-bold mb-2">What do you want to build?</h1>
+        <div className="w-full max-w-4xl text-center mb-9 mt-20">
+          <h1 className="text-5xl font-bold mb-3">W̶h̶a̶t̶ d̶o̶ y̶o̶u̶ w̶a̶n̶t̶ t̶o̶ b̶u̶i̶l̶d̶?̶</h1>
           <p className="text-md">Prompt, run, edit, and deploy full-stack web apps.</p>
         </div>
 
         {/* Pop-up Window */}
         <div className="relative bg-gray-800 bg-opacity-75 p-6 rounded-lg shadow-lg w-full max-w-lg text-center">
           <div className="neon-border"></div>
-          <h2 className="text-xl font-bold mb-4">How can you build a new web app?</h2>
+          <h2 className="text-xl font-bold mb-4"></h2>
           <form onSubmit={handleSubmit} className="relative">
             <textarea
               value={prompt}
@@ -263,7 +263,7 @@ export function Home() {
         </div>
 
         {/* Prompts */}
-        <div className="mt-6 w-full max-w-4xl text-center">
+        <div className="mt-7 w-full max-w-3xl text-center">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-6 justify-center">
             {[
               "Start a blog with Astro",
@@ -275,7 +275,7 @@ export function Home() {
             ].map((text, index) => (
               <div
                 key={text}
-                className={`cursor-pointer border border-gray-600 rounded-full px-1 py-0.5 text-sm text-gray-400 hover:bg-gray-700 hover:text-white transition-all transform hover:scale-105 animate-zoom-in-${index + 1}`}
+                className={`cursor-pointer border border-gray-600 rounded-full px-1 py-0.5 text-sm text-gray-400 hover:bg-gray-600 hover:text-white transition-all transform hover:scale-105 animate-zoom-in-${index + 1}`}
                 onClick={() => handlePromptClick(text)}
               >
                 {text}
@@ -283,7 +283,7 @@ export function Home() {
             ))}
           </div>
         </div>
-        <p className="text-gray-400 mt-4">or start a blank app with your favorite stack</p>
+        <p className="text-gray-400 mt-1">or start a blank app with your favorite stack</p>
         <div className="flex justify-center space-x-4 mt-4">
           {[
             { icon: <FaReact className="w-8 h-8" />, name: "React" },
