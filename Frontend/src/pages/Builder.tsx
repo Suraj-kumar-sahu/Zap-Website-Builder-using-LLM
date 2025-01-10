@@ -29,6 +29,7 @@ export function Builder() {
   const [steps, setSteps] = useState<Step[]>([]);
   const [files, setFiles] = useState<FileItem[]>([]);
   const [apiError, setApiError] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
 
   useEffect(() => {
     let originalFiles = [...files];
@@ -130,46 +131,6 @@ export function Builder() {
   }, [files, webcontainer]);
 
   async function init() {
-    const response = await axios.post(`${BACKEND_URL}/template`, {
-      prompt: prompt.trim()
-    });
-    setTemplateSet(true);
-    
-    const {prompts, uiPrompts} = response.data;
-
-    setSteps(parseXml(uiPrompts[0]).map((x: Step) => ({
-      ...x,
-      status: "pending"
-    })));
-
-    setLoading(true);
-    const stepsResponse = await axios.post(`${BACKEND_URL}/chat`, {
-      messages: [...prompts, prompt].map(content => ({
-        role: "user",
-        content
-      }))
-    })
-
-    setLoading(false);
-
-    setSteps(s => [...s, ...parseXml(stepsResponse.data.response).map(x => ({
-      ...x,
-      status: "pending" as const
-    }))]);
-
-    setLlmMessages([...prompts, prompt].map(content => ({
-      role: "user",
-      content
-    })));
-
-    setLlmMessages(x => [...x, {role: "assistant", content: stepsResponse.data.response}])
-  }
-
-  useEffect(() => {
-    init();
-  }, [prompt])
-
-  async function init() {
     try {
       const response = await axios.post(`${BACKEND_URL}/template`, {
         prompt: prompt.trim()
@@ -189,7 +150,7 @@ export function Builder() {
           role: "user",
           content
         }))
-      });
+      })
 
       setLoading(false);
 
@@ -203,51 +164,43 @@ export function Builder() {
         content
       })));
 
-      setLlmMessages(x => [...x, {role: "assistant", content: stepsResponse.data.response}]);
+      setLlmMessages(x => [...x, {role: "assistant", content: stepsResponse.data.response}])
     } catch (error) {
+      console.error("Error during initialization:", error);
       setApiError(true);
-      setLoading(false);
-      setTemplateSet(true);
     }
   }
 
-  // Keep handleSendMessage with try-catch
+  useEffect(() => {
+    init();
+  }, [prompt])
+
   const handleSendMessage = async () => {
-    if (!userPrompt.trim()) return;
-
-    const newMessage = {
-      role: "user" as const,
-      content: userPrompt
-    };
-
     try {
       setLoading(true);
-      const stepsResponse = await axios.post(`${BACKEND_URL}/chat`, {
-        messages: [...llmMessages, newMessage]
+      const response = await axios.post(`${BACKEND_URL}/chat`, {
+        messages: [...llmMessages, { role: "user", content: userPrompt }]
       });
-      setLoading(false);
-
-      setLlmMessages(x => [...x, newMessage]);
-      setLlmMessages(x => [...x, {
-        role: "assistant",
-        content: stepsResponse.data.response
-      }]);
-      
-      setSteps(s => [...s, ...parseXml(stepsResponse.data.response).map(x => ({
-        ...x,
-        status: "pending" as const
-      }))]);
-
+      setLlmMessages(x => [...x, { role: "user", content: userPrompt }, { role: "assistant", content: response.data.response }]);
       setPrompt("");
+      setLoading(false);
     } catch (error) {
+      console.error("Error sending message:", error);
       setApiError(true);
       setLoading(false);
     }
   };
 
+  const handleFixError = () => {
+    // Implement your error fixing logic here
+    console.log("Fixing error...");
+    setApiError(false);
+    setPreviewError(null);
+  };
+
   return (
-    <div className="h-screen flex flex-col bg-gradient-to-br from-black via-purple-950 to-black overflow-hidden">
-      <header className="h-12 flex-none bg-black/90 backdrop-blur-md border-b border-purple-900/20 relative z-20">
+    <div className="min-h-screen bg-gradient-to-br from-black via-purple-950 to-black">
+      <header className="h-12 bg-black/90 backdrop-blur-md border-b border-purple-900/20 relative z-20">
         <div className="absolute inset-0 bg-gradient-to-r from-violet-950/20 via-violet-900/10 to-violet-950/20"></div>
         <div className="h-full flex items-center justify-between px-6 relative z-10">
           <div className="flex items-center gap-2">
@@ -261,140 +214,137 @@ export function Builder() {
           </div>
         </div>
       </header>
-
       <div className="flex-1 overflow-hidden">
         <div className="h-full grid grid-cols-12 gap-4 p-4">
-          {/* Left Panel */}
-          <div className="col-span-3 flex flex-col bg-black/50 backdrop-blur rounded-lg border border-purple-900/20 shadow-xl overflow-hidden h-[calc(100vh-5rem)]">
-            <div className="flex-1 overflow-y-auto">
-              <div className="p-4">
-                <StepsList
-                  steps={steps}
-                  currentStep={currentStep}
-                  onStepClick={setCurrentStep}
-                />
-              </div>
+          <div className="col-span-3 bg-black/50 backdrop-blur rounded-lg border border-purple-900/20 shadow-xl overflow-hidden">
+            <div className="h-[calc(100vh-12rem)] overflow-y-auto p-4">
+              <StepsList
+                steps={steps}
+                currentStep={currentStep}
+                onStepClick={setCurrentStep}
+              />
             </div>
-            {/* Chat Input - Fixed at bottom */}
-            <div className="flex-none p-3 bg-black/80 border-t border-purple-900/20">
-              {(loading || !templateSet) ? (
-                <div className="flex items-center justify-center w-full">
-                  <Loader />
-                </div>
-              ) : (
-                <div className="flex gap-2">
-                  <textarea
-                    value={userPrompt}
-                    onChange={(e) => setPrompt(e.target.value)}
-                    placeholder="Type your message..."
-                    className="flex-1 bg-gray-900/50 text-white rounded-lg p-2 min-h-[40px] max-h-[120px] resize-none focus:outline-none focus:ring-2 focus:ring-purple-500 border border-purple-900/20"
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        handleSendMessage();
-                      }
-                    }}
-                  />
-                  <button
-                    onClick={handleSendMessage}
-                    className="flex-none p-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
-                    disabled={loading}
-                  >
-                    <Send size={18} />
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Right Panel */}
-          <div className="col-span-9 flex flex-col bg-black/50 backdrop-blur rounded-lg border border-purple-900/20 shadow-xl overflow-hidden h-[calc(100vh-5rem)]">
-          <div className="flex-none p-2 border-b border-purple-900/20">
-              <div className="bg-gray-900/50 rounded-lg p-1 inline-flex">
-                <button
-                  onClick={() => setActiveTab('code')}
-                  className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
-                    activeTab === 'code'
-                      ? 'bg-purple-600 text-white'
-                      : 'text-gray-400 hover:text-white'
-                  }`}
-                >
-                  Code
-                </button>
-                <button
-                  onClick={() => setActiveTab('preview')}
-                  className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
-                    activeTab === 'preview'
-                      ? 'bg-purple-600 text-white'
-                      : 'text-gray-400 hover:text-white'
-                  }`}
-                >
-                  Preview
-                </button>
-              </div>
-            </div>
-
-            <div className="flex-1 grid grid-cols-5 overflow-hidden">
-              {/* File Explorer */}
-              <div className="col-span-1 flex flex-col border-r border-purple-900/20 bg-black/80 h-full overflow-hidden">
-                <div className="flex-none p-2 border-b border-purple-900/20">
-                  <div className="flex items-center gap-2 text-gray-400">
-                    <Folder size={14} />
-                    <span className="text-sm font-medium">Files</span>
+            <div className="absolute bottom-0 left-0 w-1/4 p-3 bg-black/80 border-t border-purple-900/20">
+              <div className="flex items-center gap-2">
+                {(loading || !templateSet) ? (
+                  <div className="flex items-center justify-center w-full">
+                    <Loader />
                   </div>
-                </div>
-                <div className="flex-1 overflow-y-auto h-full">
-                  <FileExplorer 
-                    files={files} 
-                    onFileSelect={setSelectedFile}
-                  />
-                </div>
-              </div>
-
-              {/* Code Editor / Preview */}
-              <div className="col-span-4 flex flex-col h-full overflow-hidden">
-                {activeTab === 'code' ? (
-                  <>
-                    {selectedFile && (
-                      <div className="flex-none p-2 border-b border-purple-900/20 flex items-center gap-2 text-gray-400">
-                        <FileCode size={14} />
-                        <span className="text-sm font-medium">{selectedFile.path}</span>
-                      </div>
-                    )}
-                    <div className="flex-1 overflow-y-auto h-full">
-                      <CodeEditor file={selectedFile} />
-                    </div>
-                  </>
                 ) : (
-                  <div className="flex-1 overflow-y-auto h-full">
-                    <PreviewFrame webContainer={webcontainer} files={files} />
+                  <div className="flex w-full gap-2">
+                    <textarea
+                      value={userPrompt}
+                      onChange={(e) => setPrompt(e.target.value)}
+                      placeholder="Type your message..."
+                      className="flex-1 bg-gray-900/50 text-white rounded-lg p-2 min-h-[40px] max-h-[120px] resize-none focus:outline-none focus:ring-2 focus:ring-purple-500 border border-purple-900/20"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          handleSendMessage();
+                        }
+                      }}
+                    />
+                    <button
+                      onClick={handleSendMessage}
+                      className="p-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
+                      disabled={loading}
+                    >
+                      <Send size={18} />
+                    </button>
                   </div>
                 )}
               </div>
             </div>
           </div>
+          <div className="col-span-9 bg-black/50 backdrop-blur rounded-lg border border-purple-900/20 shadow-xl overflow-hidden">
+            <div className="h-full flex flex-col">
+              <div className="p-2 border-b border-purple-900/20 flex items-center">
+                <div className="bg-gray-900/50 rounded-lg p-1 inline-flex">
+                  <button
+                    onClick={() => setActiveTab('code')}
+                    className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
+                      activeTab === 'code'
+                        ? 'bg-purple-600 text-white'
+                        : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    Code
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('preview')}
+                    className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
+                      activeTab === 'preview'
+                        ? 'bg-purple-600 text-white'
+                        : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    Preview
+                  </button>
+                </div>
+              </div>
+              <div className="flex-1 grid grid-cols-5 overflow-hidden">
+                <div className="col-span-1 border-r border-purple-900/20 bg-black/80">
+                  <div className="p-2 border-b border-purple-900/20">
+                    <div className="flex items-center gap-2 text-gray-400">
+                      <Folder size={14} />
+                      <span className="text-sm font-medium">Files</span>
+                    </div>
+                  </div>
+                  <div className="overflow-y-auto h-[calc(100%-2.5rem)]">
+                    <FileExplorer 
+                      files={files} 
+                      onFileSelect={setSelectedFile}
+                    />
+                  </div>
+                </div>
+                <div className="col-span-4">
+                  <div className="h-full relative">
+                    {activeTab === 'code' ? (
+                      <div className="h-full flex flex-col">
+                        {selectedFile && (
+                          <div className="p-2 border-b border-purple-900/20 flex items-center gap-2 text-gray-400">
+                            <FileCode size={14} />
+                            <span className="text-sm font-medium">{selectedFile.path}</span>
+                          </div>
+                        )}
+                        <div className="flex-1">
+                          <CodeEditor file={selectedFile} />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="h-full relative">
+                        {previewError ? (
+                          <div className="absolute inset-0 flex items-center justify-center bg-red-500/50 text-white">
+                            <p>{previewError}</p>
+                          </div>
+                        ) : (
+                          <PreviewFrame
+                            webContainer={webcontainer}
+                            files={files}
+                            onError={(error) => setPreviewError(error.message)}
+                          />
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
-
-      {/* API Error Modal */}
       {apiError && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-gray-900 border border-purple-900/20 rounded-lg p-6 max-w-md mx-4">
-            <h2 className="text-xl font-semibold text-white mb-3">API Service Disabled</h2>
+            <h2 className="text-xl font-semibold text-white mb-3">API Service Error</h2>
             <p className="text-gray-300 mb-4">
-              The API service is currently disabled by the owner. To use this service, please contact:
+              An error occurred while communicating with the API. Please try again later.
             </p>
-            <a 
-              href="mailto:surajsahu13sk@gmail.com"
-              className="text-purple-400 hover:text-purple-300 font-medium break-all"
-            >
-              surajsahu13sk@gmail.com
-            </a>
             <button
-              onClick={() => setApiError(false)}
+              onClick={handleFixError}
               className="mt-6 w-full bg-purple-600 hover:bg-purple-700 text-white rounded-lg py-2 transition-colors"
             >
-              Close
+              Fix Error
             </button>
           </div>
         </div>
